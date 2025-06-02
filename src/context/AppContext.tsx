@@ -2,7 +2,6 @@ import { createContext, useContext, ReactNode, useState, useEffect } from 'react
 import { UserProfile, UserGoal, UserPreferences, Workout, WorkoutSession, CalendarEvent } from '../types';
 import { generateId } from '../lib/utils';
 
-// Ajout de la langue aux préférences utilisateur
 const defaultUserProfile: UserProfile = {
   id: 'user1',
   name: 'User',
@@ -13,7 +12,7 @@ const defaultUserProfile: UserProfile = {
     defaultRestTime: 60,
     darkMode: true,
     notificationsEnabled: true,
-    language: 'fr', // Ajout de la langue par défaut
+    language: 'fr',
   },
   stats: {
     workoutsCompleted: 0,
@@ -25,7 +24,6 @@ const defaultUserProfile: UserProfile = {
   },
 };
 
-// Sample workouts
 const sampleWorkouts: Workout[] = [
   {
     id: 'w1',
@@ -92,7 +90,6 @@ const sampleWorkouts: Workout[] = [
   },
 ];
 
-// Contexte mis à jour avec la gestion des langues
 interface AppContextType {
   userProfile: UserProfile;
   workouts: Workout[];
@@ -111,8 +108,6 @@ interface AppContextType {
   startTimer: (seconds: number) => void;
   pauseTimer: () => void;
   resetTimer: () => void;
-  language: string;
-  setLanguage: (lang: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -122,23 +117,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>(sampleWorkouts);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [language, setLanguage] = useState(() => {
-    const savedLang = localStorage.getItem('language');
-    return savedLang || userProfile.preferences.language;
-  });
   
-  // Timer state
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<number | null>(null);
 
-  // Persistance de la langue
-  useEffect(() => {
-    localStorage.setItem('language', language);
-    updatePreferences({ language });
-  }, [language]);
-
-  // Load data from localStorage
   useEffect(() => {
     try {
       const storedProfile = localStorage.getItem('userProfile');
@@ -157,7 +140,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save data to localStorage
   useEffect(() => {
     localStorage.setItem('userProfile', JSON.stringify(userProfile));
   }, [userProfile]);
@@ -174,7 +156,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('events', JSON.stringify(events));
   }, [events]);
 
-  // Timer functionality
   useEffect(() => {
     if (isTimerRunning && activeTimerSeconds !== null) {
       const interval = window.setInterval(() => {
@@ -182,7 +163,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (prev === null || prev <= 0) {
             clearInterval(interval);
             setIsTimerRunning(false);
-            // Play sound when timer ends
             try {
               const audio = new Audio('/timer-end.mp3');
               audio.play();
@@ -203,7 +183,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [isTimerRunning, activeTimerSeconds]);
 
-  // Context methods
   const updateProfile = (data: Partial<UserProfile>) => {
     setUserProfile(prev => ({ ...prev, ...data }));
   };
@@ -244,7 +223,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const deleteWorkout = (id: string) => {
     setWorkouts(prev => prev.filter(workout => workout.id !== id));
-    // Also remove associated events
     setEvents(prev => prev.filter(event => event.workoutId !== id));
   };
 
@@ -266,7 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           session.exercises.reduce((total, ex) => 
             total + (ex.completedSets.reduce((setTotal, set) => 
               setTotal + (set.weight * set.reps), 0)), 0),
-        streakDays: prev.stats.streakDays + 1, // Simplified streak calculation
+        streakDays: prev.stats.streakDays + 1,
         startDate: prev.stats.startDate,
       };
       
@@ -275,6 +253,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         stats: updatedStats,
       };
     });
+
+    // Mettre à jour l'événement correspondant comme complété
+    if (session.workoutId) {
+      setEvents(prev => prev.map(event => 
+        event.workoutId === session.workoutId && 
+        new Date(event.date).toDateString() === new Date().toDateString()
+          ? { ...event, completed: true }
+          : event
+      ));
+    }
   };
 
   const scheduleWorkout = (workoutId: string, date: string) => {
@@ -290,25 +278,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completed: false,
     };
     
-    // Mise à jour atomique des événements
     setEvents(prevEvents => {
-      // Vérifier si un événement existe déjà pour cette date et cet entraînement
-      const existingEventIndex = prevEvents.findIndex(
+      // Vérifier les doublons
+      const existingEvent = prevEvents.find(
         e => e.workoutId === workoutId && e.date === date
       );
       
-      if (existingEventIndex >= 0) {
+      if (existingEvent) {
         // Mettre à jour l'événement existant
-        const updatedEvents = [...prevEvents];
-        updatedEvents[existingEventIndex] = newEvent;
-        return updatedEvents;
+        return prevEvents.map(event =>
+          event.id === existingEvent.id ? newEvent : event
+        );
       }
       
       // Ajouter le nouvel événement
       return [...prevEvents, newEvent];
     });
     
-    // Mise à jour de l'entraînement
+    // Mettre à jour la date de planification de l'entraînement
     updateWorkout(workoutId, { nextScheduled: date });
   };
 
@@ -354,8 +341,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         startTimer,
         pauseTimer,
         resetTimer,
-        language,
-        setLanguage,
       }}
     >
       {children}

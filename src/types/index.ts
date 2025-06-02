@@ -62,7 +62,6 @@ export interface UserPreferences {
   defaultRestTime: number;
   darkMode: boolean;
   notificationsEnabled: boolean;
-  language: string; // Ajout de la langue
 }
 
 export interface UserStats {
