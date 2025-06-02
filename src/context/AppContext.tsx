@@ -2,7 +2,7 @@ import { createContext, useContext, ReactNode, useState, useEffect } from 'react
 import { UserProfile, UserGoal, UserPreferences, Workout, WorkoutSession, CalendarEvent } from '../types';
 import { generateId } from '../lib/utils';
 
-// Initial user profile data
+// Ajout de la langue aux préférences utilisateur
 const defaultUserProfile: UserProfile = {
   id: 'user1',
   name: 'User',
@@ -13,6 +13,7 @@ const defaultUserProfile: UserProfile = {
     defaultRestTime: 60,
     darkMode: true,
     notificationsEnabled: true,
+    language: 'fr', // Ajout de la langue par défaut
   },
   stats: {
     workoutsCompleted: 0,
@@ -91,7 +92,7 @@ const sampleWorkouts: Workout[] = [
   },
 ];
 
-// Context type definition
+// Contexte mis à jour avec la gestion des langues
 interface AppContextType {
   userProfile: UserProfile;
   workouts: Workout[];
@@ -110,24 +111,34 @@ interface AppContextType {
   startTimer: (seconds: number) => void;
   pauseTimer: () => void;
   resetTimer: () => void;
+  language: string;
+  setLanguage: (lang: string) => void;
 }
 
-// Create context
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Provider component
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile>(defaultUserProfile);
   const [workouts, setWorkouts] = useState<Workout[]>(sampleWorkouts);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [language, setLanguage] = useState(() => {
+    const savedLang = localStorage.getItem('language');
+    return savedLang || userProfile.preferences.language;
+  });
   
   // Timer state
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerInterval, setTimerInterval] = useState<number | null>(null);
 
-  // Load data from localStorage on initial load
+  // Persistance de la langue
+  useEffect(() => {
+    localStorage.setItem('language', language);
+    updatePreferences({ language });
+  }, [language]);
+
+  // Load data from localStorage
   useEffect(() => {
     try {
       const storedProfile = localStorage.getItem('userProfile');
@@ -146,7 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
+  // Save data to localStorage
   useEffect(() => {
     localStorage.setItem('userProfile', JSON.stringify(userProfile));
   }, [userProfile]);
@@ -276,11 +287,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       date,
       type: 'workout',
       workoutId,
+      completed: false,
     };
     
-    setEvents(prev => [...prev, newEvent]);
+    // Mise à jour atomique des événements
+    setEvents(prevEvents => {
+      // Vérifier si un événement existe déjà pour cette date et cet entraînement
+      const existingEventIndex = prevEvents.findIndex(
+        e => e.workoutId === workoutId && e.date === date
+      );
+      
+      if (existingEventIndex >= 0) {
+        // Mettre à jour l'événement existant
+        const updatedEvents = [...prevEvents];
+        updatedEvents[existingEventIndex] = newEvent;
+        return updatedEvents;
+      }
+      
+      // Ajouter le nouvel événement
+      return [...prevEvents, newEvent];
+    });
     
-    // Update the workout with next scheduled date
+    // Mise à jour de l'entraînement
     updateWorkout(workoutId, { nextScheduled: date });
   };
 
@@ -326,6 +354,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         startTimer,
         pauseTimer,
         resetTimer,
+        language,
+        setLanguage,
       }}
     >
       {children}
@@ -333,7 +363,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook to use the context
 export const useApp = () => {
   const context = useContext(AppContext);
   if (context === undefined) {

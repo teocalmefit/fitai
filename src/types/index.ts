@@ -4,7 +4,7 @@ export interface Exercise {
   sets: number;
   reps: number;
   weight: number;
-  restTime: number; // in seconds
+  restTime: number;
   category: ExerciseCategory;
 }
 
@@ -14,7 +14,7 @@ export interface Workout {
   id: string;
   name: string;
   exercises: Exercise[];
-  duration: number; // in minutes
+  duration: number;
   calories: number;
   createdAt: string;
   lastPerformed?: string;
@@ -27,7 +27,7 @@ export interface WorkoutSession {
   date: string;
   completed: boolean;
   exercises: CompletedExercise[];
-  duration: number; // actual duration
+  duration: number;
   calories: number;
   notes?: string;
 }
@@ -59,16 +59,17 @@ export type UserGoal =
 export interface UserPreferences {
   weightUnit: 'kg' | 'lbs';
   aiRecommendations: boolean;
-  defaultRestTime: number; // in seconds
+  defaultRestTime: number;
   darkMode: boolean;
   notificationsEnabled: boolean;
+  language: string; // Ajout de la langue
 }
 
 export interface UserStats {
   workoutsCompleted: number;
-  totalWorkoutDuration: number; // in minutes
+  totalWorkoutDuration: number;
   totalCaloriesBurned: number;
-  totalWeightLifted: number; // in kg or lbs based on preference
+  totalWeightLifted: number;
   streakDays: number;
   startDate: string;
 }
